@@ -14,20 +14,26 @@ import { METROS, METRO_LIST, TYPE_LABELS } from '../../data/metros.js'
 import { hotspots as computeHotspots, fmt, fmtInt } from '../../data/dataService.js'
 import { HEAT_BINS, UHI_BINS, heatColorFor, uhiColorFor, PALETTES } from '../../theme/palette.js'
 import VectorBasemap from './VectorBasemap.jsx'
-import HT from '../../data/houston_tiles.json'
+import { MEASURED } from '../../data/measuredTiles.js'
 
 const TX_BOUNDS = [
   [28.9, -99.6],
   [33.5, -94.6],
 ]
 
+// Esri Canvas basemaps — free, no API key, dark + light variants
 const TILE_URLS = {
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+  light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+}
+// Matching label/reference overlay (place names, roads labels)
+const REF_URLS = {
+  dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
 }
 
 const ATTRIB =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a> · Temp: FortyGuard (simulated)'
+  'Basemap &copy; Esri &amp; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors · Temp: FortyGuard'
 
 /** Bounds covering all of a metro's districts (plus margin). */
 function metroBounds(m) {
@@ -129,29 +135,32 @@ export default function CarbonMap() {
     }
   }, [shown])
 
-  // Houston: the temperature layer is the REAL FortyGuard capture (10,485 tiles)
-  const houstonTempGeo = useMemo(() => {
-    if (metro !== 'houston' || !layers.temp) return null
-    const { p05_max, p95_max } = HT.meta
+  // Metros with a REAL FortyGuard capture: temperature layer renders the measured tiles
+  const measuredReg = metro !== 'all' ? MEASURED[metro] : null
+
+  const measuredTempGeo = useMemo(() => {
+    if (!measuredReg || !layers.temp) return null
+    const { p05_max, p95_max } = measuredReg.meta
     const span = p95_max - p05_max || 1
     return {
       type: 'FeatureCollection',
-      features: HT.tiles.map((t) => ({
+      features: measuredReg.tiles.map((t) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [t[1], t[0]] },
         properties: { i: Math.min(4, Math.max(0, Math.floor(((t[3] - p05_max) / span) * 5))) },
       })),
     }
-  }, [metro, layers.temp])
+  }, [measuredReg, layers.temp])
 
-  const houstonTempBins = useMemo(() => {
-    const { p05_max, p95_max } = HT.meta
+  const measuredTempBins = useMemo(() => {
+    if (!measuredReg) return []
+    const { p05_max, p95_max } = measuredReg.meta
     const step = (p95_max - p05_max) / 5
     return Array.from({ length: 5 }, (_, i) => `${(p05_max + i * step).toFixed(1)} – ${(p05_max + (i + 1) * step).toFixed(1)} °C`)
-  }, [])
+  }, [measuredReg])
 
   const tempGeo = useMemo(() => {
-    if (metro === 'all' || metro === 'houston' || !layers.temp) return null
+    if (metro === 'all' || MEASURED[metro] || !layers.temp) return null
     const cells = dataset.tempGrids[metro] || []
     return {
       type: 'FeatureCollection',
@@ -238,7 +247,8 @@ export default function CarbonMap() {
             key={theme}
             url={TILE_URLS[theme]}
             attribution={ATTRIB}
-            subdomains="abcd"
+            maxNativeZoom={16}
+            maxZoom={18}
             eventHandlers={{
               tileerror: () => {
                 tileFailCount.current += 1
@@ -250,6 +260,7 @@ export default function CarbonMap() {
               },
             }}
           />
+          <TileLayer key={'ref' + theme} url={REF_URLS[theme]} maxNativeZoom={16} maxZoom={18} />
 
           {tempGeo ? (
             <GeoJSON
@@ -264,10 +275,10 @@ export default function CarbonMap() {
             />
           ) : null}
 
-          {houstonTempGeo ? (
+          {measuredTempGeo ? (
             <GeoJSON
-              key={'htemp' + theme}
-              data={houstonTempGeo}
+              key={'mtemp' + metro + theme}
+              data={measuredTempGeo}
               pointToLayer={(f, latlng) =>
                 L.circleMarker(latlng, {
                   radius: 3,
@@ -379,19 +390,19 @@ export default function CarbonMap() {
               {b.label} CO2e
             </div>
           ))}
-          {layers.temp && metro === 'houston' ? (
+          {layers.temp && measuredReg ? (
             <>
               <div className="t" style={{ marginTop: 8 }}>
                 Tile day-max °C — measured
               </div>
-              {houstonTempBins.map((label, i) => (
+              {measuredTempBins.map((label, i) => (
                 <div className="legend-row" key={label}>
                   <span className="legend-swatch" style={{ background: pal.heat[i], opacity: 0.6 }} />
                   {label}
                 </div>
               ))}
               <div className="legend-row" style={{ color: 'var(--muted)' }}>
-                FortyGuard capture · 2024-07-15
+                FortyGuard capture · {measuredReg.meta.date || '2024-07-15'}
               </div>
             </>
           ) : layers.temp && metro !== 'all' ? (

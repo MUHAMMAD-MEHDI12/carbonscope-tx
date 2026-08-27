@@ -14,37 +14,13 @@ import {
   localDegreeDays,
   MODEL_PARAMS,
 } from '../model/energyModel.js'
-import HT from './houston_tiles.json'
+import { MEASURED, measuredTileFor } from './measuredTiles.js'
 
-// ---- REAL FortyGuard capture (Houston, 2024-07-15) --------------------------
-// Buildings that fall inside the captured AOI take their hyperlocal heat
-// anomaly from the MEASURED tile they sit in, instead of the urban-form model.
-let _htIndex = null
-function houstonTileFor(lat, lng) {
-  if (!_htIndex) {
-    _htIndex = new Map()
-    for (const t of HT.tiles) {
-      const key = `${Math.round(t[0] * 1000)}|${Math.round(t[1] * 1000)}`
-      if (!_htIndex.has(key)) _htIndex.set(key, t)
-    }
-  }
-  const ky = Math.round(lat * 1000)
-  const kx = Math.round(lng * 1000)
-  let best = null
-  let bestD = Infinity
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const t = _htIndex.get(`${ky + dy}|${kx + dx}`)
-      if (!t) continue
-      const d = (t[0] - lat) ** 2 + (t[1] - lng) ** 2
-      if (d < bestD) {
-        bestD = d
-        best = t
-      }
-    }
-  }
-  return best
-}
+// ---- REAL FortyGuard captures -----------------------------------------------
+// Buildings that fall inside a captured AOI take their hyperlocal heat anomaly
+// from the MEASURED tile they sit in, instead of the urban-form model.
+// Houston ships with the repo; add Dallas/Austin/San Antonio via
+// scripts/capture_metros.py + scripts/compact_tiles.mjs (see measuredTiles.js).
 
 const KM_PER_DEG_LAT = 111.32
 
@@ -136,10 +112,11 @@ export function generateMetroBuildings(metroId) {
     let measured = false
     let tileMaxC = null
     let tileMinC = null
-    if (metro.id === 'houston') {
-      const t = houstonTileFor(lat, lng)
+    const reg = MEASURED[metro.id]
+    if (reg) {
+      const t = measuredTileFor(metro.id, lat, lng)
       if (t) {
-        uhiDeltaF = clamp((t[3] - HT.meta.p05_max) * 1.8, 0, 11)
+        uhiDeltaF = clamp((t[3] - reg.meta.p05_max) * 1.8, 0, 11)
         tileMaxC = t[3]
         tileMinC = t[4]
         measured = true
