@@ -15,6 +15,23 @@ import {
   MODEL_PARAMS,
 } from '../model/energyModel.js'
 import { MEASURED, measuredTileFor } from './measuredTiles.js'
+import { REAL_BUILDINGS } from './realBuildings.js'
+
+/** Nearest district (for labeling + type/vintage context) when using real footprints. */
+function nearestDistrict(metro, lat, lng) {
+  let best = metro.districts[0]
+  let bestD = Infinity
+  for (const d of metro.districts) {
+    const dd = (d.center[0] - lat) ** 2 + (d.center[1] - lng) ** 2
+    if (dd < bestD) {
+      bestD = dd
+      best = d
+    }
+  }
+  // ~degrees → km (rough): is the building far outside the mapped districts?
+  const farKm = Math.sqrt(bestD) * 105
+  return { d: best, far: farKm > 6 }
+}
 
 // ---- REAL FortyGuard captures -----------------------------------------------
 // Buildings that fall inside a captured AOI take their hyperlocal heat anomaly
@@ -79,17 +96,45 @@ export function generateMetroBuildings(metroId) {
   const districtPick = metro.districts.map((d) => [d, d.weight])
   const buildings = []
 
-  for (let i = 0; i < metro.sampleSize; i++) {
-    const d = choice(districtPick)
+  // If real footprints exist for this metro (scripts/prepare_buildings.mjs),
+  // use REAL positions + areas; otherwise procedural placement.
+  const real = REAL_BUILDINGS[metroId]
+  const count = real ? real.buildings.length : metro.sampleSize
 
-    // position: gaussian scatter around district center
-    const spreadLat = d.spreadKm / KM_PER_DEG_LAT
-    const spreadLng = d.spreadKm / (KM_PER_DEG_LAT * Math.cos((d.center[0] * Math.PI) / 180))
-    const lat = gauss(d.center[0], spreadLat * 0.55)
-    const lng = gauss(d.center[1], spreadLng * 0.55)
+  for (let i = 0; i < count; i++) {
+    let d
+    let lat
+    let lng
+    let type
+    let footprintM2
 
-    const type = choice(d.types)
-    const footprintM2 = Math.round(sampleSize(rand, gauss, type, d.sizeBoost))
+    let farFromDistricts = false
+    if (real) {
+      const rb = real.buildings[i]
+      lat = rb[0]
+      lng = rb[1]
+      footprintM2 = Math.max(30, Math.round(rb[2]))
+      const nd = nearestDistrict(metro, lat, lng)
+      d = nd.d
+      farFromDistricts = nd.far
+      // type from REAL footprint area (per the plan's classification), with
+      // district context breaking ties for the largest stock
+      if (footprintM2 < 450) type = 'residential'
+      else if (footprintM2 < 2500) type = 'commercial'
+      else {
+        const indW = d.types.find((t) => t[0] === 'industrial')?.[1] || 0
+        type = indW >= 0.3 || rand() < 0.4 ? 'industrial' : 'commercial'
+      }
+    } else {
+      d = choice(districtPick)
+      // position: gaussian scatter around district center
+      const spreadLat = d.spreadKm / KM_PER_DEG_LAT
+      const spreadLng = d.spreadKm / (KM_PER_DEG_LAT * Math.cos((d.center[0] * Math.PI) / 180))
+      lat = gauss(d.center[0], spreadLat * 0.55)
+      lng = gauss(d.center[1], spreadLng * 0.55)
+      type = choice(d.types)
+      footprintM2 = Math.round(sampleSize(rand, gauss, type, d.sizeBoost))
+    }
     const stories = choice(STORIES_BY_TYPE[type])
     const floorAreaM2 = footprintM2 * stories
 
@@ -127,7 +172,7 @@ export function generateMetroBuildings(metroId) {
     const rec = {
       id: `${metro.id.toUpperCase().slice(0, 3)}-${String(i + 1).padStart(5, '0')}`,
       metro: metro.id,
-      district: d.name,
+      district: farFromDistricts ? `${metro.short} — outer corridor` : d.name,
       lat: round5(lat),
       lng: round5(lng),
       polygon: footprintPolygon(rand, lat, lng, footprintM2),
@@ -144,6 +189,7 @@ export function generateMetroBuildings(metroId) {
       measured,
       tileMaxC,
       tileMinC,
+      realFootprint: !!real,
     }
 
     const res = calculateBuildingCarbon(rec)

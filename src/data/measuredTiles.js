@@ -14,14 +14,14 @@ import houston from './houston_tiles.json'
 export const MEASURED = { houston }
 
 // Vite: auto-load any additional captures in src/data/measured/<metro>_tiles.json
-// (guarded so Node scripts like calibrate.mjs still run without Vite)
+// (try/catch so Node scripts like calibrate.mjs still run without Vite —
+// note: no `typeof import.meta.glob` guard, because Vite replaces the CALL at
+// build time while leaving the typeof check false at runtime)
 try {
-  if (typeof import.meta.glob === 'function') {
-    const extra = import.meta.glob('./measured/*_tiles.json', { eager: true })
-    for (const [path, mod] of Object.entries(extra)) {
-      const m = path.match(/measured\/([a-z]+)_tiles\.json$/)
-      if (m) MEASURED[m[1]] = mod.default || mod
-    }
+  const extra = import.meta.glob('./measured/*_tiles.json', { eager: true })
+  for (const [path, mod] of Object.entries(extra)) {
+    const m = path.match(/measured\/([a-z]+)_tiles\.json$/)
+    if (m) MEASURED[m[1]] = mod.default || mod
   }
 } catch (e) {
   /* non-Vite environment — Houston only */

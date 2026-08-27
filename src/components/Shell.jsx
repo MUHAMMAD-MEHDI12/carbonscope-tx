@@ -1,5 +1,20 @@
 import { useApp } from '../context/AppContext.jsx'
-import { METRO_LIST } from '../data/metros.js'
+import { METRO_LIST, METROS } from '../data/metros.js'
+import { REAL_BUILDING_METROS } from '../data/realBuildings.js'
+
+function RealFootprintChip() {
+  const metros = REAL_BUILDING_METROS()
+  if (!metros.length) return null
+  const names = metros.map((m) => METROS[m]?.short || m).join(', ')
+  return (
+    <span
+      className="chip"
+      title="These metros use REAL building footprints (positions + areas from the footprints file via scripts/prepare_buildings.mjs); type/vintage/roof remain model estimates"
+    >
+      ● Real footprints: {names}
+    </span>
+  )
+}
 import {
   IconGrid,
   IconMap,
@@ -67,10 +82,11 @@ export function Header() {
       </span>
       <span
         className="chip"
-        title="10,485 measured 100 m thermal tiles (FortyGuard /v1/heatmap, 2024-07-15) drive the hyperlocal temperatures for Houston-core buildings and the Houston temperature map layer"
+        title="Measured 100 m thermal tiles (FortyGuard /v1/heatmap) drive hyperlocal temperatures for buildings inside every captured metro core, and the temperature map layers"
       >
-        ● Houston temps: measured
+        ● Temps: measured
       </span>
+      <RealFootprintChip />
       <div className="seg" role="tablist" aria-label="Metro filter">
         <button className={metro === 'all' ? 'on' : ''} onClick={() => setMetro('all')}>
           All metros

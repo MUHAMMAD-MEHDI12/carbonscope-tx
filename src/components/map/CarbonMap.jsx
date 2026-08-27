@@ -15,6 +15,7 @@ import { hotspots as computeHotspots, fmt, fmtInt } from '../../data/dataService
 import { HEAT_BINS, UHI_BINS, heatColorFor, uhiColorFor, PALETTES } from '../../theme/palette.js'
 import VectorBasemap from './VectorBasemap.jsx'
 import { MEASURED } from '../../data/measuredTiles.js'
+import { REAL_BUILDINGS } from '../../data/realBuildings.js'
 
 const TX_BOUNDS = [
   [28.9, -99.6],
@@ -35,8 +36,10 @@ const REF_URLS = {
 const ATTRIB =
   'Basemap &copy; Esri &amp; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors · Temp: FortyGuard'
 
-/** Bounds covering all of a metro's districts (plus margin). */
-function metroBounds(m) {
+/** Bounds covering all of a metro's districts (plus margin) — and, when real
+ * footprints exist for the metro, their actual extent too, so the user's own
+ * building data is always in view. */
+function metroBounds(m, metroId) {
   let minLat = 90
   let maxLat = -90
   let minLng = 180
@@ -48,6 +51,14 @@ function metroBounds(m) {
     maxLat = Math.max(maxLat, d.center[0] + dLat)
     minLng = Math.min(minLng, d.center[1] - dLng)
     maxLng = Math.max(maxLng, d.center[1] + dLng)
+  }
+  const rb = REAL_BUILDINGS[metroId]
+  if (rb?.meta?.extent) {
+    const [w, s, e, n] = rb.meta.extent
+    minLat = Math.min(minLat, s - 0.01)
+    maxLat = Math.max(maxLat, n + 0.01)
+    minLng = Math.min(minLng, w - 0.01)
+    maxLng = Math.max(maxLng, e + 0.01)
   }
   return [
     [minLat, minLng],
@@ -62,7 +73,7 @@ function ViewController({ metro }) {
     if (metro === 'all') {
       map.fitBounds(TX_BOUNDS, { padding: [20, 20] })
     } else {
-      map.flyToBounds(metroBounds(METROS[metro]), { padding: [24, 24], duration: 0.8 })
+      map.flyToBounds(metroBounds(METROS[metro], metro), { padding: [24, 24], duration: 0.8 })
     }
   }, [metro, map])
   return null
