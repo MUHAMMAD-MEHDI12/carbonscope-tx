@@ -195,7 +195,18 @@ for (const f of features) {
   cx /= n
   cy /= n
   if (!ANYWHERE && !inAoi(cx, cy)) continue
-  rows.push([+cy.toFixed(5), +cx.toFixed(5), Math.round(area)])
+  // simplified outer ring (≤8 vertices) so the map can draw the TRUE footprint
+  // outline over satellite imagery at high zoom
+  let ring = null
+  const outer = polys[0] && polys[0][0]
+  if (outer && outer.length >= 4) {
+    const pts = outer.slice(0, -1) // drop closing duplicate
+    const step = Math.max(1, Math.ceil(pts.length / 8))
+    ring = []
+    for (let i = 0; i < pts.length; i += step) ring.push([+pts[i][1].toFixed(6), +pts[i][0].toFixed(6)])
+    if (ring.length < 3) ring = null
+  }
+  rows.push(ring ? [+cy.toFixed(5), +cx.toFixed(5), Math.round(area), ring] : [+cy.toFixed(5), +cx.toFixed(5), Math.round(area)])
 }
 console.log(
   ANYWHERE

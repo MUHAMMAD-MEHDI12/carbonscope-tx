@@ -109,11 +109,13 @@ export function generateMetroBuildings(metroId) {
     let footprintM2
 
     let farFromDistricts = false
+    let realRing = null
     if (real) {
       const rb = real.buildings[i]
       lat = rb[0]
       lng = rb[1]
       footprintM2 = Math.max(30, Math.round(rb[2]))
+      realRing = rb[3] || null // true footprint outline, when the prepare script stored it
       const nd = nearestDistrict(metro, lat, lng)
       d = nd.d
       farFromDistricts = nd.far
@@ -190,6 +192,7 @@ export function generateMetroBuildings(metroId) {
       tileMaxC,
       tileMinC,
       realFootprint: !!real,
+      realRing,
     }
 
     const res = calculateBuildingCarbon(rec)

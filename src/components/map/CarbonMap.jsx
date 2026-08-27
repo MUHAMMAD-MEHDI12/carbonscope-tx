@@ -6,6 +6,7 @@ import {
   CircleMarker,
   Tooltip as LTooltip,
   useMap,
+  useMapEvents,
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -33,8 +34,20 @@ const REF_URLS = {
   light: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
 }
 
+// Satellite view (Esri World Imagery — free, no key) + place-name labels
+const SAT_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+const SAT_REF =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
+
 const ATTRIB =
   'Basemap &copy; Esri &amp; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors · Temp: FortyGuard'
+
+/** Reports the current zoom so the building layer can switch dots ⇄ true footprints. */
+function ZoomWatcher({ onZoom }) {
+  useMapEvents({ zoomend: (e) => onZoom(e.target.getZoom()) })
+  return null
+}
 
 /** Bounds covering all of a metro's districts (plus margin) — and, when real
  * footprints exist for the metro, their actual extent too, so the user's own
@@ -123,6 +136,8 @@ export default function CarbonMap() {
   const { metro, setMetro, theme, dataset } = useApp()
   const pal = PALETTES[theme]
   const [layers, setLayers] = useState({ top10: false, temp: false, hotspots: true })
+  const [basemap, setBasemap] = useState('streets') // 'streets' | 'satellite'
+  const [zoom, setZoom] = useState(11)
   const [tilesOk, setTilesOk] = useState(true)
   const tileFailCount = useRef(0)
 
@@ -133,18 +148,24 @@ export default function CarbonMap() {
     return layers.top10 ? metroBuildings.filter((b) => b.pctile >= 90) : metroBuildings
   }, [metroBuildings, layers.top10])
 
-  // Buildings as a GeoJSON point layer (canvas) — fast for thousands of marks
+  // Buildings layer: dots at metro zoom; TRUE footprint outlines (where the
+  // prepare script stored them) once zoomed in — perfect for checking the
+  // overlay against satellite imagery.
+  const footprintMode = zoom >= 15
   const buildingsGeo = useMemo(() => {
     if (!shown.length) return null
     return {
       type: 'FeatureCollection',
-      features: shown.map((b) => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [b.lng, b.lat] },
-        properties: b,
-      })),
+      features: shown.map((b) => {
+        if (footprintMode && b.realRing && b.realRing.length >= 3) {
+          const ring = b.realRing.map(([la, ln]) => [ln, la])
+          ring.push(ring[0])
+          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: b }
+        }
+        return { type: 'Feature', geometry: { type: 'Point', coordinates: [b.lng, b.lat] }, properties: b }
+      }),
     }
-  }, [shown])
+  }, [shown, footprintMode])
 
   // Metros with a REAL FortyGuard capture: temperature layer renders the measured tiles
   const measuredReg = metro !== 'all' ? MEASURED[metro] : null
@@ -241,6 +262,15 @@ export default function CarbonMap() {
             </button>
           </>
         )}
+        <span style={{ flex: 1 }} />
+        <div className="seg" role="tablist" aria-label="Basemap style">
+          <button className={basemap === 'streets' ? 'on' : ''} onClick={() => setBasemap('streets')}>
+            Streets
+          </button>
+          <button className={basemap === 'satellite' ? 'on' : ''} onClick={() => setBasemap('satellite')}>
+            Satellite
+          </button>
+        </div>
       </div>
 
       <div className="map-holder">
@@ -253,25 +283,51 @@ export default function CarbonMap() {
           style={{ background: 'var(--map-bg)' }}
         >
           <ViewController metro={metro} />
+          <ZoomWatcher onZoom={setZoom} />
           <VectorBasemap theme={theme} />
-          <TileLayer
-            key={theme}
-            url={TILE_URLS[theme]}
-            attribution={ATTRIB}
-            maxNativeZoom={16}
-            maxZoom={18}
-            eventHandlers={{
-              tileerror: () => {
-                tileFailCount.current += 1
-                if (tileFailCount.current > 3) setTilesOk(false)
-              },
-              tileload: () => {
-                tileFailCount.current = 0
-                setTilesOk(true)
-              },
-            }}
-          />
-          <TileLayer key={'ref' + theme} url={REF_URLS[theme]} maxNativeZoom={16} maxZoom={18} />
+          {basemap === 'streets' ? (
+            <>
+              <TileLayer
+                key={theme}
+                url={TILE_URLS[theme]}
+                attribution={ATTRIB}
+                maxNativeZoom={16}
+                maxZoom={19}
+                eventHandlers={{
+                  tileerror: () => {
+                    tileFailCount.current += 1
+                    if (tileFailCount.current > 3) setTilesOk(false)
+                  },
+                  tileload: () => {
+                    tileFailCount.current = 0
+                    setTilesOk(true)
+                  },
+                }}
+              />
+              <TileLayer key={'ref' + theme} url={REF_URLS[theme]} maxNativeZoom={16} maxZoom={19} />
+            </>
+          ) : (
+            <>
+              <TileLayer
+                key="sat"
+                url={SAT_URL}
+                attribution={'Imagery &copy; Esri · ' + ATTRIB}
+                maxNativeZoom={19}
+                maxZoom={19}
+                eventHandlers={{
+                  tileerror: () => {
+                    tileFailCount.current += 1
+                    if (tileFailCount.current > 3) setTilesOk(false)
+                  },
+                  tileload: () => {
+                    tileFailCount.current = 0
+                    setTilesOk(true)
+                  },
+                }}
+              />
+              <TileLayer key="satref" url={SAT_REF} maxNativeZoom={18} maxZoom={19} />
+            </>
+          )}
 
           {tempGeo ? (
             <GeoJSON
@@ -304,18 +360,33 @@ export default function CarbonMap() {
 
           {buildingsGeo ? (
             <GeoJSON
-              key={'b-' + metro + theme + (layers.top10 ? '-t' : '')}
+              key={'b-' + metro + theme + basemap + (layers.top10 ? '-t' : '') + (footprintMode ? '-f' : '')}
               data={buildingsGeo}
               pointToLayer={(f, latlng) => {
                 const b = f.properties
                 return L.circleMarker(latlng, {
                   radius: dotRadius(b.footprintM2),
                   fillColor: heatColorFor(b.carbonTons, theme),
-                  fillOpacity: 0.85,
-                  color: theme === 'dark' ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.8)',
+                  fillOpacity: basemap === 'satellite' ? 0.7 : 0.85,
+                  color:
+                    basemap === 'satellite'
+                      ? 'rgba(255,255,255,0.9)'
+                      : theme === 'dark'
+                        ? 'rgba(0,0,0,0.45)'
+                        : 'rgba(255,255,255,0.8)',
                   weight: 0.7,
                 })
               }}
+              style={(f) =>
+                f.geometry.type === 'Polygon'
+                  ? {
+                      fillColor: heatColorFor(f.properties.carbonTons, theme),
+                      fillOpacity: basemap === 'satellite' ? 0.45 : 0.75,
+                      color: basemap === 'satellite' ? '#ffffff' : theme === 'dark' ? '#0d0d0d' : '#ffffff',
+                      weight: 1.2,
+                    }
+                  : undefined
+              }
               onEachFeature={(f, layer) => {
                 layer.bindPopup(popupHtml(f.properties, theme), { maxWidth: 300 })
               }}
