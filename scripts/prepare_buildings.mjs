@@ -163,6 +163,49 @@ function ringAreaM2(ring, latRef) {
 
 const inAoi = (lng, lat) => lng >= AOI[0] && lng <= AOI[2] && lat >= AOI[1] && lat <= AOI[3]
 
+// Shape-preserving Douglas–Peucker simplification (planar approx — fine at
+// building scale). Points are [lng, lat]; tolerance in degrees.
+function douglasPeucker(pts, tol) {
+  if (pts.length <= 4) return pts
+  const cosLat = Math.cos((pts[0][1] * Math.PI) / 180)
+  const keep = new Array(pts.length).fill(false)
+  keep[0] = true
+  keep[pts.length - 1] = true
+  const segDist = (p, a, b) => {
+    const ax = a[0] * cosLat
+    const ay = a[1]
+    const bx = b[0] * cosLat
+    const by = b[1]
+    const px = p[0] * cosLat
+    const py = p[1]
+    const dx = bx - ax
+    const dy = by - ay
+    const len2 = dx * dx + dy * dy
+    if (!len2) return Math.hypot(px - ax, py - ay)
+    let t = ((px - ax) * dx + (py - ay) * dy) / len2
+    t = Math.max(0, Math.min(1, t))
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+  }
+  const stack = [[0, pts.length - 1]]
+  while (stack.length) {
+    const [a, b] = stack.pop()
+    let maxD = 0
+    let idx = -1
+    for (let i = a + 1; i < b; i++) {
+      const d = segDist(pts[i], pts[a], pts[b])
+      if (d > maxD) {
+        maxD = d
+        idx = i
+      }
+    }
+    if (maxD > tol && idx > 0) {
+      keep[idx] = true
+      stack.push([a, idx], [idx, b])
+    }
+  }
+  return pts.filter((_, i) => keep[i])
+}
+
 const rows = []
 let skippedGeom = 0
 for (const f of features) {
@@ -195,15 +238,16 @@ for (const f of features) {
   cx /= n
   cy /= n
   if (!ANYWHERE && !inAoi(cx, cy)) continue
-  // simplified outer ring (≤8 vertices) so the map can draw the TRUE footprint
-  // outline over satellite imagery at high zoom
+  // TRUE footprint outline for high-zoom satellite overlay.
+  // Simplified with Douglas–Peucker at ~0.5 m tolerance — shape-preserving, so
+  // outlines stay visually identical to the source geojson (rectangles keep 4
+  // corners, L-shapes keep their notches).
   let ring = null
   const outer = polys[0] && polys[0][0]
   if (outer && outer.length >= 4) {
     const pts = outer.slice(0, -1) // drop closing duplicate
-    const step = Math.max(1, Math.ceil(pts.length / 8))
-    ring = []
-    for (let i = 0; i < pts.length; i += step) ring.push([+pts[i][1].toFixed(6), +pts[i][0].toFixed(6)])
+    const simplified = douglasPeucker(pts, 0.5 / 111320) // 0.5 m in degrees
+    ring = simplified.map(([x, y]) => [+y.toFixed(6), +x.toFixed(6)])
     if (ring.length < 3) ring = null
   }
   rows.push(ring ? [+cy.toFixed(5), +cx.toFixed(5), Math.round(area), ring] : [+cy.toFixed(5), +cx.toFixed(5), Math.round(area)])
