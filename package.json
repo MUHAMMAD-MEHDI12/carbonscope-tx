@@ -1,0 +1,26 @@
+{
+  "name": "carbonscope-tx",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CarbonScope TX — Building Carbon Intelligence for Texas. FortyGuard Hackathon 2026.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --config vite.artifact.config.js",
+    "preview": "vite preview",
+    "calibrate": "node scripts/calibrate.mjs"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.15.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.19",
+    "vite-plugin-singlefile": "^2.0.3"
+  }
+}

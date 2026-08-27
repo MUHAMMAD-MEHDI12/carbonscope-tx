@@ -1,0 +1,107 @@
+import { useApp } from '../context/AppContext.jsx'
+import { METRO_LIST } from '../data/metros.js'
+import {
+  IconGrid,
+  IconMap,
+  IconBars,
+  IconThermo,
+  IconSliders,
+  IconGov,
+  IconDoc,
+  IconSun,
+  IconMoon,
+} from './Icons.jsx'
+
+export const SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: IconGrid, desc: 'Headline carbon picture across the four Texas metros' },
+  { id: 'map', label: 'Carbon Map', icon: IconMap, desc: 'Every sampled building, colored by annual emissions' },
+  { id: 'metros', label: 'Metro Analysis', icon: IconBars, desc: 'Compare metros, building types, vintages and top emitters' },
+  { id: 'uhi', label: 'Heat Island', icon: IconThermo, desc: 'What hyperlocal temperature data reveals about hidden carbon' },
+  { id: 'scenarios', label: 'Scenario Lab', icon: IconSliders, desc: 'Interactive retrofit and policy scenario modeling' },
+  { id: 'policy', label: 'Policy Briefing', icon: IconGov, desc: 'Data-backed actions for Texas governments' },
+  { id: 'methods', label: 'Methodology', icon: IconDoc, desc: 'Data sources, model formulas, assumptions and limitations' },
+]
+
+export function Sidebar() {
+  const { section, setSection } = useApp()
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <div className="brand-mark">C</div>
+        <div>
+          <div className="brand-name">CarbonScope TX</div>
+          <div className="brand-sub">Building Carbon Intelligence</div>
+        </div>
+      </div>
+      <div className="nav-label">Dashboard</div>
+      {SECTIONS.map((s) => {
+        const Ico = s.icon
+        return (
+          <button
+            key={s.id}
+            className={'nav-item' + (section === s.id ? ' active' : '')}
+            onClick={() => setSection(s.id)}
+          >
+            <Ico className="ico" />
+            {s.label}
+          </button>
+        )
+      })}
+      <div className="sidebar-foot">
+        FortyGuard Hackathon 2026
+        <br />
+        Hyperlocal temperature × GIS × remote sensing
+      </div>
+    </aside>
+  )
+}
+
+export function Header() {
+  const { metro, setMetro, theme, toggleTheme, section } = useApp()
+  const current = SECTIONS.find((s) => s.id === section)
+  return (
+    <header className="header">
+      <h1>{current?.label}</h1>
+      <span className="chip demo" title="Building stock is a calibrated synthetic sample (EPA/ERCOT benchmarks). Houston-core temperatures are the team's real FortyGuard capture; swap full pipeline data via src/data/dataService.js">
+        ● Demo buildings
+      </span>
+      <span
+        className="chip"
+        title="10,485 measured 100 m thermal tiles (FortyGuard /v1/heatmap, 2024-07-15) drive the hyperlocal temperatures for Houston-core buildings and the Houston temperature map layer"
+      >
+        ● Houston temps: measured
+      </span>
+      <div className="seg" role="tablist" aria-label="Metro filter">
+        <button className={metro === 'all' ? 'on' : ''} onClick={() => setMetro('all')}>
+          All metros
+        </button>
+        {METRO_LIST.map((m) => (
+          <button
+            key={m.id}
+            className={metro === m.id ? 'on' : ''}
+            onClick={() => setMetro(m.id)}
+          >
+            {m.short}
+          </button>
+        ))}
+      </div>
+      <button
+        className="icon-btn"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label="Toggle color theme"
+      >
+        {theme === 'dark' ? <IconSun width={17} /> : <IconMoon width={16} />}
+      </button>
+    </header>
+  )
+}
+
+export function SectionHead({ title, children }) {
+  return (
+    <div className="section-head">
+      <h2>{title}</h2>
+      {children ? <p>{children}</p> : null}
+    </div>
+  )
+}
