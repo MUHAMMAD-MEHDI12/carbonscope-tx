@@ -12,7 +12,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useApp } from '../../context/AppContext.jsx'
 import { METROS, METRO_LIST, TYPE_LABELS } from '../../data/metros.js'
-import { hotspots as computeHotspots, fmt, fmtInt } from '../../data/dataService.js'
+import { fmt, fmtInt } from '../../data/dataService.js'
 import { HEAT_BINS, UHI_BINS, heatColorFor, uhiColorFor, PALETTES } from '../../theme/palette.js'
 import VectorBasemap from './VectorBasemap.jsx'
 import { MEASURED } from '../../data/measuredTiles.js'
@@ -135,7 +135,7 @@ function popupHtml(b, theme) {
 export default function CarbonMap() {
   const { metro, setMetro, theme, dataset } = useApp()
   const pal = PALETTES[theme]
-  const [layers, setLayers] = useState({ top10: false, temp: false, hotspots: true })
+  const [layers, setLayers] = useState({ top10: false, temp: false })
   const [basemap, setBasemap] = useState('streets') // 'streets' | 'satellite'
   const [zoom, setZoom] = useState(11)
   const [tilesOk, setTilesOk] = useState(true)
@@ -221,11 +221,6 @@ export default function CarbonMap() {
     }
   }, [metro, layers.temp, dataset, theme])
 
-  const spots = useMemo(() => {
-    if (metro === 'all' || !layers.hotspots || !metroBuildings) return []
-    return computeHotspots(metroBuildings)
-  }, [metro, layers.hotspots, metroBuildings])
-
   const metroRows = useMemo(
     () =>
       METRO_LIST.map((m) => {
@@ -256,9 +251,6 @@ export default function CarbonMap() {
             </button>
             <button className={'mini-btn' + (layers.temp ? ' on' : '')} onClick={() => toggle('temp')}>
               Temperature anomaly
-            </button>
-            <button className={'mini-btn' + (layers.hotspots ? ' on' : '')} onClick={() => toggle('hotspots')}>
-              Carbon hotspots
             </button>
           </>
         )}
@@ -392,30 +384,6 @@ export default function CarbonMap() {
               }}
             />
           ) : null}
-
-          {spots.map((h, i) => (
-            <CircleMarker
-              key={'h' + i}
-              center={[h.lat, h.lng]}
-              radius={16 + Math.min(14, h.z * 4)}
-              pathOptions={{
-                color: pal.heat[3],
-                weight: 2,
-                dashArray: null,
-                fill: true,
-                fillColor: pal.heat[3],
-                fillOpacity: 0.08,
-              }}
-            >
-              <LTooltip direction="top" opacity={0.96}>
-                <span style={{ fontWeight: 700 }}>Carbon hotspot #{i + 1}</span>
-                <br />
-                {fmt(h.kg / 1000, 0)} t/yr across {h.n} sampled buildings
-                <br />
-                Gi*-style z-score: {h.z.toFixed(1)}
-              </LTooltip>
-            </CircleMarker>
-          ))}
 
           {metro === 'all'
             ? metroRows.map((m) => {

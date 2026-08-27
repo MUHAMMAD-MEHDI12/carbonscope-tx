@@ -70,7 +70,7 @@ export default function Methodology() {
           <div className="flow-arrow">→</div>
           <div className="flow-step">
             <div className="t">4 · Analyze</div>
-            <div className="d">Hotspots (Getis-Ord-style), concentration, UHI attribution, retrofit & policy scenarios — rendered live in this dashboard</div>
+            <div className="d">Emission concentration, UHI attribution, retrofit & policy scenarios — rendered live in this dashboard</div>
           </div>
         </div>
       </div>
