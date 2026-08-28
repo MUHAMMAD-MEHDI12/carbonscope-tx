@@ -40,6 +40,7 @@ const FILE = getArg('file', join(ROOT, 'data', `${METRO}_buildings.geojson`))
 const MAX = parseInt(getArg('max', '3000'), 10)
 const CARBON_FIELD = getArg('carbon-field', null) // force a property name for team carbon
 const NO_CARBON = args.includes('--no-carbon')
+const CARBON_DIV = Math.max(1e-9, parseFloat(getArg('carbon-divide', '1')) || 1)
 
 // Captured AOIs (must match the FortyGuard captures so temps are measured)
 const AOIS = {
@@ -305,7 +306,7 @@ for (const f of features) {
     const raw = f.properties ? f.properties[carbonField] : null
     const num = typeof raw === 'number' ? raw : typeof raw === 'string' && raw !== '' ? +raw : NaN
     if (Number.isFinite(num) && num > 0) {
-      const tons = carbonUnits === 'kg' ? num / 1000 : num
+      const tons = (carbonUnits === 'kg' ? num / 1000 : num) / CARBON_DIV
       if (tons >= 0.01 && tons <= 200000) row.push(+tons.toFixed(2))
     }
   }
