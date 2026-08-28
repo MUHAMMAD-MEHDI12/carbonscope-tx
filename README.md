@@ -48,20 +48,26 @@ Requires Node 18+.
 
 (The Vite config uses relative paths, so it works under any repo name with zero changes.)
 
-## Real FortyGuard data on board
+## Real data on board
 
-`data/houston_day_2024-07-15.json` is the team's **real** `/v1/heatmap` capture (10,485 ×
-100 m tiles over Houston's Downtown↔Gulfton corridor, °C, filter_type=3). It is compacted to
-`src/data/houston_tiles.json` and used two ways: Houston-core buildings take their hyperlocal
-heat anomaly from the **measured tile** they sit in (flagged ✓ in map popups and by the
-"Houston temps: measured" header chip), and the Houston map's temperature layer renders the
-capture itself. Other metros use the calibrated urban-form model until captures are made —
-same one-call recipe per metro.
+**Temperatures — all four metro cores are measured.** The team's real `/v1/heatmap` captures
+(41,367 × 100 m tiles total: Dallas 10,155 · Austin 10,148 · San Antonio 10,579 · Houston
+10,485; °C, filter_type=3) live in `src/data/measured/`. Buildings inside each captured core
+take their hyperlocal heat anomaly from the **measured tile** they sit in (flagged ✓ in map
+popups and by the "Temps: measured" header chip), and each metro's temperature layer renders
+the capture itself. Outside the cores, calibrated district plumes fill in.
+
+**Buildings — Dallas is real.** `scripts/prepare_buildings.mjs` converted the team's own
+footprints GeoJSON into 18,429 real Dallas buildings (positions, areas, and true outlines
+shown at high zoom / satellite). If the file has a per-building CO2e column
+(`..._with_carbon.geojson`), the script auto-detects it and the dashboard shows the
+**team-computed carbon** for those buildings instead of the model estimate. Other metros use
+the calibrated synthetic sample until footprint files are added — same one-command recipe.
 
 The map also carries a **bundled offline vector basemap** (Natural Earth 10m: Texas highways,
-urban areas, lakes, city labels — `src/data/tx_basemap.json`) rendered beneath the CARTO
-street tiles, so geography is always visible even with no tile network; online, street tiles
-cover it automatically.
+urban areas, lakes, city labels — `src/data/tx_basemap.json`) rendered beneath the Esri
+street tiles, so geography is always visible even with no tile network; online, street or
+satellite tiles cover it automatically.
 
 ## ⚠️ Demo data — and how to swap in the real thing
 
@@ -136,7 +142,7 @@ src/
 ├── model/energyModel.js      # the physics — all coefficients documented
 ├── data/
 │   ├── metros.js             # metro + district geography, stock counts
-│   ├── generateBuildings.js  # seeded synthetic sample (swap point for real data)
+│   ├── generateBuildings.js  # real footprints/carbon where provided; seeded sample elsewhere
 │   └── dataService.js        # aggregations: summaries, hotspots, curves, buckets
 ├── theme/palette.js          # validated chart palettes (dark + light)
 ├── context/AppContext.jsx    # theme, metro filter, dataset

@@ -110,12 +110,19 @@ export function generateMetroBuildings(metroId) {
 
     let farFromDistricts = false
     let realRing = null
+    let teamTons = null
     if (real) {
       const rb = real.buildings[i]
       lat = rb[0]
       lng = rb[1]
       footprintM2 = Math.max(30, Math.round(rb[2]))
-      realRing = rb[3] || null // true footprint outline, when the prepare script stored it
+      // Extras after [lat,lng,area]: an Array is the true footprint ring; a
+      // finite number is the TEAM-computed annual carbon (t CO2e) from the
+      // "..._with_carbon" GeoJSON. Order-independent so old files still load.
+      for (let k = 3; k < rb.length; k++) {
+        if (Array.isArray(rb[k])) realRing = rb[k]
+        else if (Number.isFinite(rb[k]) && rb[k] > 0) teamTons = rb[k]
+      }
       const nd = nearestDistrict(metro, lat, lng)
       d = nd.d
       farFromDistricts = nd.far
@@ -207,6 +214,22 @@ export function generateMetroBuildings(metroId) {
     // UHI penalty: recompute at metro baseline degree days (cheap second pass)
     const base = calculateBuildingCarbon({ ...rec, cdd: metro.baseCDD, hdd: metro.baseHDD })
     rec.uhiPenaltyKg = Math.round(res.carbonKg - base.carbonKg)
+
+    // TEAM-computed carbon (from the group's own GeoJSON): use it as this
+    // building's annual total, scaling the model's internal split (electricity,
+    // cooling, UHI share, savings) proportionally so charts stay consistent.
+    if (teamTons != null) {
+      const f = (teamTons * 1000) / Math.max(1, rec.carbonKg)
+      rec.carbonKg = Math.round(teamTons * 1000)
+      rec.carbonTons = teamTons
+      rec.coolingKwh = Math.round(rec.coolingKwh * f)
+      rec.elecKwh = Math.round(rec.elecKwh * f)
+      rec.energyCostUsd = Math.round(rec.energyCostUsd * f)
+      rec.coolRoofSavingsKg = Math.round(rec.coolRoofSavingsKg * f)
+      rec.uhiPenaltyKg = Math.round(rec.uhiPenaltyKg * f)
+      rec.intensityKgM2 = round1(rec.carbonKg / rec.floorAreaM2)
+      rec.teamCarbon = true
+    }
 
     buildings.push(rec)
   }

@@ -38,6 +38,8 @@ const getArg = (name, dflt) => {
 const METRO = getArg('metro', 'dallas')
 const FILE = getArg('file', join(ROOT, 'data', `${METRO}_buildings.geojson`))
 const MAX = parseInt(getArg('max', '3000'), 10)
+const CARBON_FIELD = getArg('carbon-field', null) // force a property name for team carbon
+const NO_CARBON = args.includes('--no-carbon')
 
 // Captured AOIs (must match the FortyGuard captures so temps are measured)
 const AOIS = {
@@ -80,6 +82,54 @@ console.log(`Total features in file: ${features.length.toLocaleString()}`)
 if (!features.length) {
   console.error('No features found — is this a GeoJSON FeatureCollection?')
   process.exit(1)
+}
+
+// ---- TEAM CARBON detection ---------------------------------------------
+// If the file is the team's "..._with_carbon" GeoJSON, find the property that
+// holds each building's annual CO2e and carry it into the dashboard, where it
+// replaces the model's estimate for that building.
+let carbonField = null
+let carbonUnits = null // 'tons' | 'kg'
+if (!NO_CARBON) {
+  const numericKeys = new Map() // key -> sample values
+  const scanN = Math.min(features.length, 500)
+  for (let i = 0; i < scanN; i++) {
+    const p = features[i].properties || {}
+    for (const [k, v] of Object.entries(p)) {
+      const num = typeof v === 'number' ? v : typeof v === 'string' && v !== '' && Number.isFinite(+v) ? +v : null
+      if (num == null) continue
+      if (!numericKeys.has(k)) numericKeys.set(k, [])
+      const arr = numericKeys.get(k)
+      if (arr.length < 200) arr.push(num)
+    }
+  }
+  const score = (k) => {
+    const n = k.toLowerCase()
+    if (/per_?m2|intensity|factor|rate|eui/.test(n)) return -1 // per-area, not a total
+    let s = 0
+    if (/co2|carbon/.test(n)) s += 4
+    if (/emis|ghg/.test(n)) s += 3
+    if (/total|annual|yr|year/.test(n)) s += 2
+    if (/(^|_)(t|tons?|tonnes|kg)($|_)/.test(n)) s += 1
+    return s
+  }
+  if (CARBON_FIELD) {
+    if (numericKeys.has(CARBON_FIELD)) carbonField = CARBON_FIELD
+    else console.error(`--carbon-field "${CARBON_FIELD}" not found among numeric properties: ${[...numericKeys.keys()].join(', ') || '(none)'}`)
+  } else {
+    const ranked = [...numericKeys.keys()].map((k) => [k, score(k)]).filter(([, s]) => s >= 3).sort((a, b) => b[1] - a[1])
+    if (ranked.length) carbonField = ranked[0][0]
+  }
+  if (carbonField) {
+    const vals = numericKeys.get(carbonField).filter((v) => v > 0).sort((a, b) => a - b)
+    const median = vals[Math.floor(vals.length / 2)] || 0
+    const n = carbonField.toLowerCase()
+    carbonUnits = /kg/.test(n) ? 'kg' : /(^|_)(t|tons?|tonnes|tco2e?)($|_)/.test(n) ? 'tons' : median > 1500 ? 'kg' : 'tons'
+    console.log(`Team carbon field: "${carbonField}" (units: ${carbonUnits}, median ${median.toLocaleString()})`)
+  } else {
+    console.log(`No carbon field detected. Numeric properties seen: ${[...numericKeys.keys()].join(', ') || '(none)'}`)
+    console.log('If one of those IS the carbon column, re-run with --carbon-field "<name>"')
+  }
 }
 
 // ---- auto-detect coordinate system quirks ------------------------------------
@@ -250,7 +300,16 @@ for (const f of features) {
     ring = simplified.map(([x, y]) => [+y.toFixed(6), +x.toFixed(6)])
     if (ring.length < 3) ring = null
   }
-  rows.push(ring ? [+cy.toFixed(5), +cx.toFixed(5), Math.round(area), ring] : [+cy.toFixed(5), +cx.toFixed(5), Math.round(area)])
+  const row = ring ? [+cy.toFixed(5), +cx.toFixed(5), Math.round(area), ring] : [+cy.toFixed(5), +cx.toFixed(5), Math.round(area)]
+  if (carbonField) {
+    const raw = f.properties ? f.properties[carbonField] : null
+    const num = typeof raw === 'number' ? raw : typeof raw === 'string' && raw !== '' ? +raw : NaN
+    if (Number.isFinite(num) && num > 0) {
+      const tons = carbonUnits === 'kg' ? num / 1000 : num
+      if (tons >= 0.01 && tons <= 200000) row.push(+tons.toFixed(2))
+    }
+  }
+  rows.push(row)
 }
 console.log(
   ANYWHERE
@@ -303,6 +362,25 @@ const out = {
     note: 'positions + footprint areas are real; type/vintage/roof are model estimates',
   },
   buildings: sample,
+}
+if (carbonField) {
+  let nWith = 0
+  let sum = 0
+  for (const r of sample) {
+    const last = r[r.length - 1]
+    if (typeof last === 'number' && r.length > 3) {
+      nWith++
+      sum += last
+    }
+  }
+  out.meta.carbon = {
+    field: carbonField,
+    units_in_file: carbonUnits,
+    n_with_carbon: nWith,
+    sum_tons: Math.round(sum),
+    mean_tons: nWith ? +(sum / nWith).toFixed(2) : 0,
+  }
+  console.log(`Team carbon carried: ${nWith.toLocaleString()} of ${sample.length.toLocaleString()} buildings — sum ${Math.round(sum).toLocaleString()} t/yr, mean ${(sum / Math.max(1, nWith)).toFixed(1)} t`)
 }
 const outPath = join(outDir, `${METRO}_buildings.json`)
 writeFileSync(outPath, JSON.stringify(out))

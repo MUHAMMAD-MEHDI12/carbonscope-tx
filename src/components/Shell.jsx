@@ -1,6 +1,6 @@
 import { useApp } from '../context/AppContext.jsx'
 import { METRO_LIST, METROS } from '../data/metros.js'
-import { REAL_BUILDING_METROS } from '../data/realBuildings.js'
+import { REAL_BUILDINGS, REAL_BUILDING_METROS } from '../data/realBuildings.js'
 
 function RealFootprintChip() {
   const metros = REAL_BUILDING_METROS()
@@ -12,6 +12,20 @@ function RealFootprintChip() {
       title="These metros use REAL building footprints (positions + areas from the footprints file via scripts/prepare_buildings.mjs); type/vintage/roof remain model estimates"
     >
       ● Real footprints: {names}
+    </span>
+  )
+}
+
+function TeamCarbonChip() {
+  const metros = REAL_BUILDING_METROS().filter((m) => REAL_BUILDINGS[m]?.meta?.carbon?.n_with_carbon > 0)
+  if (!metros.length) return null
+  const names = metros.map((m) => METROS[m]?.short || m).join(', ')
+  return (
+    <span
+      className="chip"
+      title="Per-building annual CO2e computed by the team from its own footprints file replaces the model estimate for these metros (scripts/prepare_buildings.mjs --carbon)"
+    >
+      ● Carbon: team data ({names})
     </span>
   )
 }
@@ -77,16 +91,17 @@ export function Header() {
   return (
     <header className="header">
       <h1>{current?.label}</h1>
-      <span className="chip demo" title="Building stock is a calibrated synthetic sample (EPA/ERCOT benchmarks). Houston-core temperatures are the team's real FortyGuard capture; swap full pipeline data via src/data/dataService.js">
-        ● Demo buildings
+      <span className="chip demo" title="Building type, vintage and roof attributes are model estimates calibrated to EPA/ERCOT/CBECS benchmarks. Dallas uses the team's real footprints; all four metro cores use measured FortyGuard temperatures.">
+        ● Attributes: modeled
       </span>
       <span
         className="chip"
-        title="Measured 100 m thermal tiles (FortyGuard /v1/heatmap) drive hyperlocal temperatures for buildings inside every captured metro core, and the temperature map layers"
+        title="Measured 100 m thermal tiles (FortyGuard /v1/heatmap, 41,367 tiles across the four metro cores) drive hyperlocal temperatures for buildings inside every captured core, and the temperature map layers"
       >
         ● Temps: measured
       </span>
       <RealFootprintChip />
+      <TeamCarbonChip />
       <div className="seg" role="tablist" aria-label="Metro filter">
         <button className={metro === 'all' ? 'on' : ''} onClick={() => setMetro('all')}>
           All metros

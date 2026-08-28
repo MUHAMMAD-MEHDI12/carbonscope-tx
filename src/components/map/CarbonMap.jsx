@@ -43,9 +43,14 @@ const SAT_REF =
 const ATTRIB =
   'Basemap &copy; Esri &amp; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors · Temp: FortyGuard'
 
-/** Reports the current zoom so the building layer can switch dots ⇄ true footprints. */
-function ZoomWatcher({ onZoom }) {
-  useMapEvents({ zoomend: (e) => onZoom(e.target.getZoom()) })
+/** Reports zoom + viewport (and busy state during moves) for level-of-detail drawing. */
+function ViewWatcher({ onView, onBusy }) {
+  const map = useMapEvents({
+    zoomstart: () => onBusy(true),
+    movestart: () => onBusy(true),
+    zoomend: () => onView(map.getZoom(), map.getBounds()),
+    moveend: () => onView(map.getZoom(), map.getBounds()),
+  })
   return null
 }
 
@@ -101,7 +106,10 @@ function popupHtml(b, theme) {
   const tons = b.carbonTons
   const save = b.coolRoofSavingsKg / 1000
   const rows = [
-    ['Annual carbon', `<b>${tons >= 100 ? tons.toFixed(0) : tons.toFixed(1)} t CO2e</b>`],
+    [
+      b.teamCarbon ? 'Annual carbon (team data) ✓' : 'Annual carbon',
+      `<b>${tons >= 100 ? tons.toFixed(0) : tons.toFixed(1)} t CO2e</b>`,
+    ],
     ['Intensity', `${b.intensityKgM2.toFixed(0)} kg/m²`],
     ['Type', TYPE_LABELS[b.type]],
     ['Built', String(b.yearBuilt)],
@@ -138,6 +146,14 @@ export default function CarbonMap() {
   const [layers, setLayers] = useState({ top10: false, temp: false })
   const [basemap, setBasemap] = useState('streets') // 'streets' | 'satellite'
   const [zoom, setZoom] = useState(11)
+  const [viewBounds, setViewBounds] = useState(null)
+  const [mapBusy, setMapBusy] = useState(false)
+  const onView = (z, b) => {
+    setZoom(z)
+    setViewBounds([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()])
+    // clear the "updating" flag on the next frame, after the layer re-renders
+    requestAnimationFrame(() => setTimeout(() => setMapBusy(false), 120))
+  }
   const [tilesOk, setTilesOk] = useState(true)
   const tileFailCount = useRef(0)
 
@@ -148,24 +164,56 @@ export default function CarbonMap() {
     return layers.top10 ? metroBuildings.filter((b) => b.pctile >= 90) : metroBuildings
   }, [metroBuildings, layers.top10])
 
-  // Buildings layer: dots at metro zoom; TRUE footprint outlines (where the
-  // prepare script stored them) once zoomed in — perfect for checking the
-  // overlay against satellite imagery.
+  // Buildings layer with LEVEL-OF-DETAIL (the trick every web map uses):
+  //  - zoomed out: draw a density-preserving subset (all large buildings +
+  //    an even spread of small ones) — visually identical, far fewer objects
+  //  - zoomed in (≥14): every building in the current viewport
+  //  - ≥15: TRUE footprint outlines for overlay-checking on satellite
+  // Stats and KPIs always use ALL buildings — this only affects drawing.
   const footprintMode = zoom >= 15
-  const buildingsGeo = useMemo(() => {
-    if (!shown.length) return null
-    return {
-      type: 'FeatureCollection',
-      features: shown.map((b) => {
-        if (footprintMode && b.realRing && b.realRing.length >= 3) {
-          const ring = b.realRing.map(([la, ln]) => [ln, la])
-          ring.push(ring[0])
-          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: b }
-        }
-        return { type: 'Feature', geometry: { type: 'Point', coordinates: [b.lng, b.lat] }, properties: b }
-      }),
+  const { buildingsGeo, drawnCount } = useMemo(() => {
+    if (!shown.length) return { buildingsGeo: null, drawnCount: 0 }
+    let subset = shown
+
+    if (zoom >= 14) {
+      // viewport-limited full detail (with margin so panning feels seamless)
+      if (viewBounds) {
+        const [s, w, n, e] = viewBounds
+        const mLat = (n - s) * 0.35
+        const mLng = (e - w) * 0.35
+        subset = shown.filter(
+          (b) => b.lat > s - mLat && b.lat < n + mLat && b.lng > w - mLng && b.lng < e + mLng
+        )
+      }
+    } else {
+      // density-preserving thinning: keep all large buildings, spread the rest
+      const cap = zoom >= 13 ? 8000 : 4500
+      if (shown.length > cap) {
+        const large = []
+        const small = []
+        for (const b of shown) (b.footprintM2 >= 1200 ? large : small).push(b)
+        const need = Math.max(0, cap - large.length)
+        const step = small.length / (need || 1)
+        subset = large
+        for (let i = 0; i < need; i++) subset.push(small[Math.floor(i * step)])
+      }
     }
-  }, [shown, footprintMode])
+
+    return {
+      drawnCount: subset.length,
+      buildingsGeo: {
+        type: 'FeatureCollection',
+        features: subset.map((b) => {
+          if (footprintMode && b.realRing && b.realRing.length >= 3) {
+            const ring = b.realRing.map(([la, ln]) => [ln, la])
+            ring.push(ring[0])
+            return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: b }
+          }
+          return { type: 'Feature', geometry: { type: 'Point', coordinates: [b.lng, b.lat] }, properties: b }
+        }),
+      },
+    }
+  }, [shown, footprintMode, zoom, viewBounds])
 
   // Metros with a REAL FortyGuard capture: temperature layer renders the measured tiles
   const measuredReg = metro !== 'all' ? MEASURED[metro] : null
@@ -244,7 +292,8 @@ export default function CarbonMap() {
         ) : (
           <>
             <span className="small" style={{ color: 'var(--text-2)', marginRight: 4 }}>
-              {fmtInt(shown.length)} sampled buildings · each dot = one building
+              Drawing {fmtInt(drawnCount)} of {fmtInt(shown.length)} buildings
+              {mapBusy ? ' · updating…' : ''} · zoom in for full detail + footprints
             </span>
             <button className={'mini-btn' + (layers.top10 ? ' on' : '')} onClick={() => toggle('top10')}>
               Top 10% emitters
@@ -275,7 +324,7 @@ export default function CarbonMap() {
           style={{ background: 'var(--map-bg)' }}
         >
           <ViewController metro={metro} />
-          <ZoomWatcher onZoom={setZoom} />
+          <ViewWatcher onView={onView} onBusy={setMapBusy} />
           <VectorBasemap theme={theme} />
           {basemap === 'streets' ? (
             <>
@@ -352,7 +401,10 @@ export default function CarbonMap() {
 
           {buildingsGeo ? (
             <GeoJSON
-              key={'b-' + metro + theme + basemap + (layers.top10 ? '-t' : '') + (footprintMode ? '-f' : '')}
+              key={
+                'b-' + metro + theme + basemap + (layers.top10 ? '-t' : '') + '-z' + zoom +
+                (zoom >= 14 && viewBounds ? '-' + viewBounds.map((x) => x.toFixed(3)).join(',') : '')
+              }
               data={buildingsGeo}
               pointToLayer={(f, latlng) => {
                 const b = f.properties

@@ -30,8 +30,8 @@ export default function MapExplorer() {
 
       <p className="foot-note">
         Layers: <b>Top 10% emitters</b> isolates the precision-targeting opportunity ·{' '}
-        <b>Temperature anomaly</b> overlays the simulated FortyGuard hyperlocal heat surface. Zoom in with
-        <b> Satellite</b> on to see true footprint outlines over aerial imagery.
+        <b>Temperature anomaly</b> overlays the measured FortyGuard heat surface (100 m tiles captured in
+        every metro core). Zoom in with <b>Satellite</b> on to see true footprint outlines over aerial imagery.
       </p>
     </>
   )

@@ -7,13 +7,13 @@ const SOURCES = [
     name: 'FortyGuard tOS API — /v1/heatmap',
     role: 'Hyperlocal (100 m) temperature → per-building CDD/HDD and heat-island anomaly',
     url: 'https://www.fortyguard.com',
-    demo: 'Houston core: REAL capture (10,485 tiles, filter_type=3, 2024-07-15, °C) bundled in data/ — drives measured anomalies for buildings in the AOI and the Houston map layer. Other metros: district heat plumes calibrated to published UHI magnitudes pending captures.',
+    demo: 'ALL FOUR metro cores: REAL captures (41,367 tiles total — Dallas 10,155, Austin 10,148, San Antonio 10,579, Houston 10,485; filter_type=3, °C) bundled in src/data/measured/ — they drive measured heat anomalies for buildings inside each core and the temperature map layers. Outside the cores, district plumes calibrated to published UHI magnitudes fill in.',
   },
   {
     name: 'Microsoft Global ML Building Footprints',
     role: 'Building geometry: footprint area, location (≈10.5M polygons in Texas)',
     url: 'https://github.com/microsoft/GlobalMLBuildingFootprints',
-    demo: 'Synthetic stratified sample of 8,800 buildings across realistic district geography',
+    demo: 'Dallas: 18,429 REAL footprints (positions, areas, true outlines) from the team’s own file via scripts/prepare_buildings.mjs. Other metros: synthetic stratified samples pending footprint files.',
   },
   {
     name: 'Landsat 8/9 Collection 2 L2 (USGS)',
@@ -32,6 +32,58 @@ const SOURCES = [
     role: 'kg CO2e per kWh (grid) and per therm (natural gas)',
     url: 'https://www.ercot.com',
     demo: 'Used directly: 0.40 kg/kWh grid, 5.31 kg/therm gas',
+  },
+]
+
+// Peer-reviewed and institutional sources behind each model component.
+const REFERENCES = [
+  {
+    comp: 'Urban heat island physics',
+    ref: 'Oke, T.R. (1982). The energetic basis of the urban heat island. Q. J. R. Meteorol. Soc., 108(455).',
+    link: 'https://doi.org/10.1002/qj.49710845502',
+    label: 'DOI: 10.1002/qj.49710845502',
+  },
+  {
+    comp: 'Cool roofs & albedo → cooling energy',
+    ref: 'Akbari, H., Pomerantz, M., Taha, H. (2001). Cool surfaces and shade trees to reduce energy use and improve air quality in urban areas. Solar Energy, 70(3).',
+    link: 'https://doi.org/10.1016/S0038-092X(00)00089-X',
+    label: 'DOI: 10.1016/S0038-092X(00)00089-X',
+  },
+  {
+    comp: 'Reflective & green mitigation magnitudes',
+    ref: 'Santamouris, M. (2014). Cooling the cities — a review of reflective and green roof mitigation technologies. Solar Energy, 103.',
+    link: 'https://doi.org/10.1016/j.solener.2012.07.003',
+    label: 'DOI: 10.1016/j.solener.2012.07.003',
+  },
+  {
+    comp: 'Vegetation / canopy cooling (NDVI term)',
+    ref: 'Ziter, C.D., Pedersen, E.J., Kucharik, C.J., Turner, M.G. (2019). Scale-dependent interactions between tree canopy cover and impervious surfaces reduce daytime urban heat. PNAS, 116(15).',
+    link: 'https://doi.org/10.1073/pnas.1817561116',
+    label: 'DOI: 10.1073/pnas.1817561116',
+  },
+  {
+    comp: 'Degree-day method (CDD/HDD)',
+    ref: 'CIBSE (2006). Degree-days: theory and application (TM41). Chartered Institution of Building Services Engineers.',
+    link: 'https://www.cibse.org/knowledge-research/knowledge-portal/tm41-degree-days-theory-and-application',
+    label: 'CIBSE TM41',
+  },
+  {
+    comp: 'Building energy-use intensities',
+    ref: 'U.S. EIA — Commercial Buildings Energy Consumption Survey (CBECS) & Residential Energy Consumption Survey (RECS).',
+    link: 'https://www.eia.gov/consumption/commercial/',
+    label: 'eia.gov/consumption',
+  },
+  {
+    comp: 'Grid & fuel emission factors',
+    ref: 'U.S. EPA — eGRID database and GHG Emission Factors Hub; ERCOT system data.',
+    link: 'https://www.epa.gov/egrid',
+    label: 'epa.gov/egrid',
+  },
+  {
+    comp: 'Building footprint extraction',
+    ref: 'Microsoft AI for Good — Global ML Building Footprints (computer-vision-derived polygons).',
+    link: 'https://github.com/microsoft/GlobalMLBuildingFootprints',
+    label: 'github.com/microsoft',
   },
 ]
 
@@ -158,6 +210,35 @@ export default function Methodology() {
         />
       </div>
 
+      <div className="card mt">
+        <div className="card-head">
+          <div className="titles">
+            <h3>Scientific references</h3>
+            <div className="sub">The literature behind each model component</div>
+          </div>
+        </div>
+        <DataTable
+          columns={[
+            { key: 'comp', label: 'Model component' },
+            { key: 'ref', label: 'Reference' },
+            {
+              key: 'label',
+              label: 'Link / DOI',
+              fmt: (v, r) => (
+                <a className="src-link" href={r.link} target="_blank" rel="noreferrer">
+                  {v}
+                </a>
+              ),
+            },
+          ]}
+          rows={REFERENCES}
+        />
+        <p className="foot-note">
+          Coefficients in this dashboard are calibrated within the ranges these sources report;
+          exact values used are printed in the tables above and in <code>src/model/energyModel.js</code>.
+        </p>
+      </div>
+
       <div className="grid cols-2 mt">
         <div className="card">
           <div className="card-head">
@@ -170,7 +251,7 @@ export default function Methodology() {
             <li>Residential mean ≈ 8.0 t CO2e/home/yr — matches TX household energy + ERCOT intensity.</li>
             <li>Commercial intensity ≈ 60 kg CO2e/m²/yr — inside the CBECS/ENERGY STAR 50–100 band.</li>
             <li>Combined 4-metro total ≈ 107 Mt/yr — consistent with TX building-sector share of state electricity + gas.</li>
-            <li>Modeled building electricity ≈ 250 TWh/yr — ~65% of ERCOT retail load, matching the metros' population share.</li>
+            <li>Modeled building electricity ≈ 250 TWh/yr vs 329 TWh statewide residential + commercial retail sales (EIA, 2024) — consistent with the four metros&rsquo; share of the state.</li>
             <li>UHI = 12% of cooling carbon — inside the 8–12% literature range for hot-climate metros.</li>
           </ul>
         </div>
@@ -182,7 +263,7 @@ export default function Methodology() {
             </div>
           </div>
           <ul style={{ paddingLeft: 18, display: 'grid', gap: 7, fontSize: 12.5, color: 'var(--text-2)' }}>
-            <li><b>Demo dataset is synthetic.</b> Geography, stock mix and climate are realistic and calibrated, but no individual building on the map is real. The full pipeline (repo <code>/pipeline</code> notes) swaps in FortyGuard + Microsoft + Landsat data unchanged.</li>
+            <li><b>Mixed real + modeled data.</b> Temperatures are measured in all four metro cores (41,367 FortyGuard tiles) and Dallas uses 18,429 real footprints; other metros&rsquo; buildings and every building&rsquo;s type/vintage/roof are still calibrated model estimates, clearly flagged in the UI chips.</li>
             <li>Building type, vintage and albedo are remote-sensing proxies — ±30–50% uncertainty per building; errors shrink fast on aggregation.</li>
             <li>Annual-average grid intensity; hourly marginal emissions would sharpen the peak-demand story.</li>
             <li>Expansion weights assume the stratified sample represents each type's stock; assessor parcel joins would replace this.</li>
