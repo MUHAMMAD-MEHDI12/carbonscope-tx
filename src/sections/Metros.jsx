@@ -42,10 +42,10 @@ export default function Metros() {
     const keep = new Set(sorted.slice(0, 150).map((b) => b.id))
     const step = Math.max(1, Math.floor(buildings.length / 600))
     const pts = buildings.filter((b, i) => i % step === 0 || keep.has(b.id))
-    return ['residential', 'commercial', 'industrial'].map((t) => ({
+    return ['all'].map((t) => ({
       type: t,
       data: pts
-        .filter((b) => b.type === t)
+        .filter(() => true)
         .map((b) => ({ x: b.floorAreaM2, y: Math.max(0.5, b.carbonTons), id: b.id })),
     }))
   }, [buildings])
@@ -154,11 +154,11 @@ export default function Metros() {
         </ChartCard>
 
         <ChartCard
-          title="Size vs carbon, by building type"
+          title="Size vs carbon by floor area"
           sub="Floor area (m², log) vs annual CO2e (t, log) — sampled subset"
           table={{
             columns: [
-              { key: 'type', label: 'Type', fmt: (v) => TYPE_LABELS[v] },
+              { key: 'type', label: 'Group', fmt: () => 'All buildings' },
               { key: 'n', label: 'Points shown', num: true },
             ],
             rows: scatterByType.map((s) => ({ type: s.type, n: s.data.length })),
@@ -202,9 +202,9 @@ export default function Metros() {
               {scatterByType.map((s, i) => (
                 <Scatter
                   key={s.type}
-                  name={TYPE_LABELS[s.type]}
+                  name="Buildings"
                   data={s.data}
-                  fill={tc[s.type]}
+                  fill="#f59e0b"
                   fillOpacity={0.75}
                   isAnimationActive={false}
                 />
@@ -227,7 +227,7 @@ export default function Metros() {
             { key: 'id', label: 'Building' },
             { key: 'metro', label: 'Metro', fmt: (v) => METROS[v].short },
             { key: 'district', label: 'District' },
-            { key: 'type', label: 'Type', fmt: (v) => TYPE_LABELS[v] },
+
             { key: 'yearBuilt', label: 'Built', num: true },
             { key: 'floorAreaM2', label: 'Floor m²', num: true, fmt: (v) => fmtInt(v) },
             { key: 'uhiDeltaF', label: 'Heat anomaly', num: true, fmt: (v) => '+' + v.toFixed(1) + '°F' },
