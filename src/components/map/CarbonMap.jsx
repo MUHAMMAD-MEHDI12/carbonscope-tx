@@ -111,7 +111,7 @@ function popupHtml(b, theme) {
       `<b>${tons >= 100 ? tons.toFixed(0) : tons.toFixed(1)} t CO2e</b>`,
     ],
     ['Intensity', `${b.intensityKgM2.toFixed(0)} kg/m²`],
-    ['Type', TYPE_LABELS[b.type]],
+    
     ['Built', String(b.yearBuilt)],
     ['Footprint', `${fmtInt(b.footprintM2)} m² × ${b.stories} fl`],
     ['Roof albedo', b.roofAlbedo.toFixed(2)],
