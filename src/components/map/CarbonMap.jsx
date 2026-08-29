@@ -73,10 +73,10 @@ function metroBounds(m, metroId) {
   const rb = REAL_BUILDINGS[metroId]
   if (rb?.meta?.extent) {
     const [w, s, e, n] = rb.meta.extent
-    minLat = Math.min(minLat, s - 0.01)
-    maxLat = Math.max(maxLat, n + 0.01)
-    minLng = Math.min(minLng, w - 0.01)
-    maxLng = Math.max(maxLng, e + 0.01)
+    minLat = s - Math.max(0.008, (n - s) * 0.08)
+    maxLat = n + Math.max(0.008, (n - s) * 0.08)
+    minLng = w - Math.max(0.008, (e - w) * 0.08)
+    maxLng = e + Math.max(0.008, (e - w) * 0.08)
   }
   return [
     [minLat, minLng],
