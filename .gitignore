@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-single
+# raw footprints files can exceed GitHub's 100 MB limit — only the compact
+# output in src/data/real_buildings/ gets committed
+data/*_buildings.geojson
+data/*_buildings.geojsonl
+.DS_Store
+*.local
+.env
+.env.*
+npm-debug.log*
