@@ -107,12 +107,12 @@ export default function Methodology() {
         <div className="flow">
           <div className="flow-step">
             <div className="t">1 · Ingest</div>
-            <div className="d">Building footprints (Microsoft) clipped to metro boundaries; FortyGuard temperature history; Landsat B4/B5 → NDVI</div>
+            <div className="d">Building footprints (Microsoft) clipped to metro boundaries; FortyGuard temperature history; NDVI/albedo proxies (district-level estimates, not satellite-derived)</div>
           </div>
           <div className="flow-arrow">→</div>
           <div className="flow-step">
             <div className="t">2 · Fuse</div>
-            <div className="d">Spatial join: every building gets hyperlocal CDD/HDD, heat anomaly, NDVI, albedo proxy, type & vintage estimates</div>
+            <div className="d">Spatial join: every building gets hyperlocal CDD/HDD, measured heat anomaly; NDVI, albedo, type and vintage are modeled estimates</div>
           </div>
           <div className="flow-arrow">→</div>
           <div className="flow-step">
@@ -263,8 +263,8 @@ export default function Methodology() {
             </div>
           </div>
           <ul style={{ paddingLeft: 18, display: 'grid', gap: 7, fontSize: 12.5, color: 'var(--text-2)' }}>
-            <li><b>Mixed real + modeled data.</b> Temperatures are measured in all four metro cores (41,367 FortyGuard tiles) and Dallas uses 18,429 real footprints; other metros&rsquo; buildings and every building&rsquo;s type/vintage/roof are still calibrated model estimates, clearly flagged in the UI chips.</li>
-            <li>Building type, vintage and albedo are remote-sensing proxies — ±30–50% uncertainty per building; errors shrink fast on aggregation.</li>
+            <li><b>Mixed real + modeled data.</b> Temperatures are measured in all four metro cores (41,367 FortyGuard tiles) and Dallas uses 18,429 real footprints; other metros&rsquo; buildings and every building&rsquo;s type/vintage/roof are still calibrated model estimates, clearly flagged in the UI chips. Displayed Dallas carbon comes from the team&rsquo;s per-building file; during processing its cooling-degree-days were inadvertently scaled by the tile count (~10,155), which we corrected by that same factor, restoring CDD to the real Dallas value (~3,100) and per-building emissions to a realistic ~17 t/yr mean. The energy model below documents the methodology and powers the other three metros.</li>
+            <li>Building type, vintage and albedo are modeled estimates (not measured per building) — ±30–50% uncertainty per building; errors shrink fast on aggregation.</li>
             <li>Annual-average grid intensity; hourly marginal emissions would sharpen the peak-demand story.</li>
             <li>Expansion weights assume the stratified sample represents each type's stock; assessor parcel joins would replace this.</li>
             <li>Embodied carbon (construction materials) is out of scope — this maps operational carbon only.</li>
