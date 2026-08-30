@@ -17,7 +17,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
-    "recharts": "^2.15.4"
+    "recharts": "^2.15.4",
+    "stream-chain": "^4.2.5",
+    "stream-json": "^3.6.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
