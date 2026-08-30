@@ -111,17 +111,25 @@ export function generateMetroBuildings(metroId) {
     let farFromDistricts = false
     let realRing = null
     let teamTons = null
+    let realNdvi = null
     if (real) {
       const rb = real.buildings[i]
       lat = rb[0]
       lng = rb[1]
       footprintM2 = Math.max(30, Math.round(rb[2]))
       // Extras after [lat,lng,area]: an Array is the true footprint ring; a
-      // finite number is the TEAM-computed annual carbon (t CO2e) from the
-      // "..._with_carbon" GeoJSON. Order-independent so old files still load.
+      // finite number is the TEAM-computed annual carbon (t CO2e), old-style;
+      // a plain object {c, n} carries real carbon (t CO2e) and/or real NDVI
+      // together (current prepare_buildings.mjs / add_real_data.mjs output).
+      // Order-independent so old files still load.
       for (let k = 3; k < rb.length; k++) {
-        if (Array.isArray(rb[k])) realRing = rb[k]
-        else if (Number.isFinite(rb[k]) && rb[k] > 0) teamTons = rb[k]
+        const v = rb[k]
+        if (Array.isArray(v)) realRing = v
+        else if (Number.isFinite(v) && v > 0) teamTons = v
+        else if (v && typeof v === 'object') {
+          if (Number.isFinite(v.c) && v.c > 0) teamTons = v.c
+          if (Number.isFinite(v.n)) realNdvi = v.n
+        }
       }
       const nd = nearestDistrict(metro, lat, lng)
       d = nd.d
@@ -149,8 +157,12 @@ export function generateMetroBuildings(metroId) {
 
     const yearBuilt = Math.round(clamp(gauss((d.vintage[0] + d.vintage[1]) / 2, (d.vintage[1] - d.vintage[0]) / 4), 1900, 2025))
 
-    // Vegetation: district base + noise; dense/large buildings sit in more paved settings
-    const ndvi = clamp(gauss(d.ndvi, 0.06) - (type !== 'residential' ? 0.03 : 0), 0.03, 0.75)
+    // Vegetation: real GEE NDVI when we have it for this building; otherwise
+    // fall back to the district-based model (base + noise, paved-surface bias).
+    const ndvi =
+      realNdvi != null
+        ? clamp(realNdvi, 0, 1)
+        : clamp(gauss(d.ndvi, 0.06) - (type !== 'residential' ? 0.03 : 0), 0.03, 0.75)
 
     // Roof albedo: older commercial/industrial roofs skew dark
     let albedoBase = type === 'residential' ? 0.38 : 0.33
@@ -200,6 +212,7 @@ export function generateMetroBuildings(metroId) {
       tileMinC,
       realFootprint: !!real,
       realRing,
+      realNdvi: realNdvi != null,
     }
 
     const res = calculateBuildingCarbon(rec)

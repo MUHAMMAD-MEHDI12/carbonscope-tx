@@ -115,7 +115,7 @@ function popupHtml(b, theme) {
     ['Built', String(b.yearBuilt)],
     ['Footprint', `${fmtInt(b.footprintM2)} m² × ${b.stories} fl`],
     ['Roof albedo', b.roofAlbedo.toFixed(2)],
-    ['Nearby NDVI', b.ndvi.toFixed(2)],
+    [b.realNdvi ? 'NDVI (GEE) ✓' : 'Nearby NDVI', b.ndvi.toFixed(2)],
     [
       'Local heat anomaly',
       `+${b.uhiDeltaF.toFixed(1)}°F${b.measured ? ' ✓' : ''}`,
