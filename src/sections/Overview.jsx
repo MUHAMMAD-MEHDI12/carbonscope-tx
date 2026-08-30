@@ -121,40 +121,21 @@ export default function Overview() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard
-          title="Where the carbon sits"
-          sub="Share of modeled building carbon by type"
-          table={{
-            columns: [
-              { key: 'type', label: 'Type', fmt: (v) => TYPE_LABELS[v] },
-              { key: 'mtons', label: 'Mt CO2e/yr', num: true, fmt: (v) => v.toFixed(1) },
-              { key: 'pct', label: 'Share', num: true, fmt: (v) => v.toFixed(1) + '%' },
-              { key: 'count', label: 'Sampled', num: true, fmt: (v) => fmtInt(v) },
-            ],
-            rows: types,
-          }}
-        >
-          <TypeShareBar types={types} tc={tc} pal={pal} />
-          <div className="divider" />
-          <div className="grid cols-3" style={{ gap: 10 }}>
-            {types.map((t) => (
-              <div key={t.type}>
-                <div className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 3, background: tc[t.type], display: 'inline-block' }} />
-                  {TYPE_LABELS[t.type]}
-                </div>
-                <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.4px', marginTop: 2 }}>
-                  {t.pct.toFixed(0)}%
-                </div>
-                <div className="small muted">{t.mtons.toFixed(1)} Mt/yr</div>
-              </div>
-            ))}
+        <div className="card">
+          <div className="card-head">
+            <div className="titles">
+              <h3>Building type breakdown</h3>
+              <div className="sub">Not shown</div>
+            </div>
           </div>
-          <p className="foot-note">
-            Commercial buildings dominate despite being ~8% of the stock — large floor
-            plates, long operating hours and heavy cooling loads.
+          <p className="foot-note" style={{ marginTop: 4 }}>
+            We don't have real residential / commercial / industrial classification
+            data for these buildings, so we're not showing a type breakdown. Positions,
+            footprint sizes and (where noted) NDVI and carbon are real; building type
+            would have to be guessed from footprint size alone, which isn't reliable
+            enough to report.
           </p>
-        </ChartCard>
+        </div>
       </div>
 
       <div className="grid cols-2 mt">
