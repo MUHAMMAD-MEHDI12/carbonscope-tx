@@ -36,26 +36,6 @@ export const METROS = {
     ],
   },
 
-  houston: {
-    id: 'houston',
-    name: 'Greater Houston',
-    short: 'Houston',
-    center: [29.7604, -95.3698],
-    zoom: 11,
-    population: 7.5e6,
-    baseCDD: 3050,
-    baseHDD: 1450,
-    sampleSize: 2700,
-    stock: { residential: 1790000, commercial: 172000, industrial: 40000 },
-    summerHighF: 94.8,
-    districts: [
-      { id: 'dt', name: 'Downtown / Midtown', center: [29.7589, -95.3677], spreadKm: 2.4, weight: 0.15, uhiF: 7.2, ndvi: 0.13, vintage: [1952, 2019], types: [['commercial', 0.84], ['residential', 0.13], ['industrial', 0.03]], sizeBoost: 2.6 },
-      { id: 'sc', name: 'Ship Channel petrochemical belt', center: [29.735, -95.22], spreadKm: 4.2, weight: 0.14, uhiF: 6.1, ndvi: 0.09, vintage: [1950, 2000], types: [['industrial', 0.85], ['commercial', 0.12], ['residential', 0.03]], sizeBoost: 3.6 },
-      { id: 'ir', name: 'Inner-loop neighborhoods', center: [29.77, -95.42], spreadKm: 4.4, weight: 0.25, uhiF: 4.1, ndvi: 0.26, vintage: [1945, 1988], types: [['residential', 0.78], ['commercial', 0.19], ['industrial', 0.03]], sizeBoost: 1 },
-      { id: 'wc', name: 'Westchase / Energy Corridor', center: [29.75, -95.6], spreadKm: 4.6, weight: 0.22, uhiF: 3.2, ndvi: 0.3, vintage: [1975, 2016], types: [['commercial', 0.5], ['residential', 0.45], ['industrial', 0.05]], sizeBoost: 1.6 },
-      { id: 'sb', name: 'Suburban ring (Katy–Woodlands)', center: [29.95, -95.5], spreadKm: 7, weight: 0.24, uhiF: 1.8, ndvi: 0.4, vintage: [1985, 2022], types: [['residential', 0.82], ['commercial', 0.16], ['industrial', 0.02]], sizeBoost: 1.1 },
-    ],
-  },
 
   austin: {
     id: 'austin',
