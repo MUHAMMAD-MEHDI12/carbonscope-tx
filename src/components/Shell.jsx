@@ -80,6 +80,8 @@ export function Sidebar() {
         FortyGuard Hackathon 2026
         <br />
         Hyperlocal temperature × GIS × remote sensing
+        <br />
+        Team GeoHeat (FG-289)
       </div>
     </aside>
   )
